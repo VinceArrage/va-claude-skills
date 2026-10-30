@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dev-loop: a task from Ready to Done</title>
+<style>
+  :root { --bg:#ffffff; --ink:#1c2330; --muted:#5b6472; --accent:#1f5f8b; --line:#d9dee5; --card:#f4f6f8; --code-bg:#eef1f4; --gate:#8b3a1f; --sev:#2f7d5b; --ellie:#6a4c93; --moh:#b8742a; --lanealt:#f7f9fb; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#14181f; --ink:#dde3ea; --muted:#98a2b0; --accent:#6db3e0; --line:#2c3440; --card:#1b212b; --code-bg:#232b36; --gate:#e0906d; --sev:#6cc39a; --ellie:#b39ddb; --moh:#e0a85a; --lanealt:#181d26; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.55 "Segoe UI", system-ui, -apple-system, sans-serif; }
+  main { max-width:100rem; margin:0 auto; padding:2.5rem 1.5rem 4rem; }
+  header.doc { border-bottom:2px solid var(--accent); padding-bottom:1rem; margin-bottom:1.5rem; }
+  h1 { font-size:1.7rem; margin:0 0 .25rem; } .sub { color:var(--muted); font-size:.95rem; }
+  h2 { font-size:1.25rem; margin:2.25rem 0 .75rem; padding-top:1rem; border-top:1px solid var(--line); color:var(--accent); }
+  p, li { margin:.5rem 0; max-width:52rem; }
+  code { background:var(--code-bg); padding:.1em .35em; border-radius:4px; font:.875em/1.4 Consolas,"Cascadia Code",monospace; }
+  .wrap { overflow-x:auto; border:1px solid var(--line); border-radius:8px; background:var(--bg); }
+  svg { display:block; max-width:none; font-family:"Segoe UI",system-ui,sans-serif; }
+  .lane { fill:transparent; } .lane.alt { fill:var(--lanealt); }
+  .lanel { font-size:12.5px; font-weight:700; fill:var(--muted); }
+  .colline { stroke:var(--line); stroke-width:1; } .colh { font-size:13px; font-weight:700; fill:var(--accent); text-anchor:middle; }
+  .n rect { fill:var(--card); stroke:var(--line); stroke-width:1.2; }
+  .n text { text-anchor:middle; fill:var(--ink); font-size:11px; } .n .t0 { font-weight:700; font-size:11.5px; }
+  .n.stop rect { fill:var(--gate); stroke:var(--gate); } .n.stop text { fill:#fff; }
+  .n.auto rect { fill:var(--bg); stroke:var(--gate); stroke-width:1.6; stroke-dasharray:4 3; } .n.auto .t0 { fill:var(--gate); }
+  .n.sig rect { stroke:var(--accent); stroke-width:1.6; } .n.sig .t0 { fill:var(--accent); }
+  .n.hat rect { stroke:var(--sev); stroke-width:1.6; } .n.hat .t0 { fill:var(--sev); }
+  .n.disp rect { stroke:var(--ellie); stroke-width:1.6; stroke-dasharray:5 3; } .n.disp .t0 { fill:var(--ellie); }
+  .n.skill rect { fill:var(--code-bg); stroke:var(--line); } .n.skill text { font-family:Consolas,"Cascadia Code",monospace; font-size:10.5px; } .n.skill .t0 { font-size:11px; }
+  .n.state rect { fill:var(--ink); stroke:var(--ink); } .n.state text { fill:var(--bg); }
+  .n.new rect { stroke:var(--moh); } .n.new .t0 { fill:var(--moh); }
+  .num { fill:var(--accent); } .numt { fill:#fff; font-size:10px; font-weight:700; text-anchor:middle; }
+  .badge { font-size:9px; fill:var(--moh); text-anchor:end; font-weight:700; }
+  .ar { fill:none; stroke:var(--muted); stroke-width:1.3; } .ar.dashed { stroke-dasharray:5 3; } .ahp { fill:var(--muted); }
+  .ar.loop { stroke:var(--gate); stroke-width:1.2; stroke-dasharray:3 3; } .ahpl { fill:var(--gate); }
+  .lbl { font-size:10px; fill:var(--muted); text-anchor:middle; } .loopl { fill:var(--gate); }
+  .owner { font-size:11.5px; font-weight:700; fill:var(--muted); text-anchor:middle; }
+  .legend { display:flex; flex-wrap:wrap; gap:.6rem 1.4rem; font-size:.9rem; margin:.75rem 0 1rem; color:var(--muted); }
+  .legend span::before { content:""; display:inline-block; width:14px; height:14px; border-radius:4px; vertical-align:-2px; margin-right:.4rem; border:1.6px solid var(--line); background:var(--card); }
+  .legend .stop::before { background:var(--gate); border-color:var(--gate); }
+  .legend .auto::before { background:var(--bg); border:1.6px dashed var(--gate); }
+  .legend .sig::before { border-color:var(--accent); } .legend .hat::before { border-color:var(--sev); }
+  .legend .disp::before { border:1.6px dashed var(--ellie); } .legend .skill::before { background:var(--code-bg); }
+  .legend .new::before { border-color:var(--moh); }
+  table { border-collapse:collapse; width:100%; max-width:60rem; margin:1rem 0; font-size:.93rem; }
+  th, td { border:1px solid var(--line); padding:.5rem .65rem; text-align:left; vertical-align:top; } th { background:var(--card); }
+  .note { background:var(--card); border-left:4px solid var(--accent); padding:.7rem .9rem; border-radius:0 6px 6px 0; margin:1rem 0; max-width:52rem; }
+  footer.doc { margin-top:3rem; padding-top:1rem; border-top:1px solid var(--line); color:var(--muted); font-size:.85rem; }
+  @media print { .wrap { overflow:visible; border:none; } svg { width:100%; height:auto; } main { max-width:none; padding:0; } }
+</style>
+</head>
+<body>
+<main>
+<header class="doc">
+  <h1>A task from Ready to Done</h1>
+  <div class="sub">Every agent and skill call in the dev-loop, in order, from a GitHub issue to a merged and closed task.</div>
+</header>
+
+<p>Read left to right by stage and top to bottom by who acts. The numbers give the order. Filled dark-red nodes are where the loop stops and waits for you. Nothing else in the diagram needs you at the screen. A small task stops exactly five times: intake, the approach brief, the UI walk, the PR open, and the delivery package.</p>
+
+<div class="legend">
+  <span class="stop">Stop: you act</span>
+  <span class="auto">Gate that auto-passes (or stops)</span>
+  <span class="sig">Sigmund, bookkeeping and sequencing</span>
+  <span class="hat">Sev hat-swap, in session</span>
+  <span class="disp">Clean-room dispatch, fresh context</span>
+  <span class="skill">Skill, doc, or tool call</span>
+</div>
+
+<h2>The main pipeline</h2>
+<div class="wrap"><svg width="1934" height="850" viewBox="0 0 1934 850" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Task flow from Ready to Done">
+<defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahp"/></marker>
+<marker id="ahl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahpl"/></marker>
+</defs>
+<rect x="0" y="34" width="1934" height="141" class="lane "/>
+<text x="12" y="110" class="lanel">Developer</text>
+<rect x="0" y="175" width="1934" height="272" class="lane alt"/>
+<text x="12" y="316" class="lanel">Sigmund</text>
+<rect x="0" y="447" width="1934" height="156" class="lane "/>
+<text x="12" y="530" class="lanel">Sev</text>
+<rect x="0" y="603" width="1934" height="83" class="lane alt"/>
+<text x="12" y="650" class="lanel">Ellie</text>
+<rect x="0" y="686" width="1934" height="156" class="lane "/>
+<text x="12" y="769" class="lanel">Skills &amp; docs</text>
+<line x1="118" y1="0" x2="118" y2="850" class="colline"/>
+<text x="231" y="22" class="colh">Ready</text>
+<line x1="344" y1="0" x2="344" y2="850" class="colline"/>
+<text x="457" y="22" class="colh">1 · Intake</text>
+<line x1="570" y1="0" x2="570" y2="850" class="colline"/>
+<text x="683" y="22" class="colh">2 · Planning</text>
+<line x1="796" y1="0" x2="796" y2="850" class="colline"/>
+<text x="909" y="22" class="colh">3 · Execution</text>
+<line x1="1022" y1="0" x2="1022" y2="850" class="colline"/>
+<text x="1135" y="22" class="colh">4 · Verification</text>
+<line x1="1248" y1="0" x2="1248" y2="850" class="colline"/>
+<text x="1361" y="22" class="colh">5 · Delivery</text>
+<line x1="1474" y1="0" x2="1474" y2="850" class="colline"/>
+<text x="1587" y="22" class="colh">6 · Closeout</text>
+<line x1="1700" y1="0" x2="1700" y2="850" class="colline"/>
+<text x="1813" y="22" class="colh">Done</text>
+<path d="M1135,280 C1135,256 909,256 909,501" class="ar loop" marker-end="url(#ahl)"/><text x="1022" y="260" class="lbl loopl">findings → fixes → re-verify</text>
+<path d="M1361,280 C1361,238 909,238 909,501" class="ar loop" marker-end="url(#ahl)"/><text x="1135" y="242" class="lbl loopl">CI / Copilot valid → fix → re-check</text>
+<path d="M331,104 C344,104 344,216 357,216" class="ar" marker-end="url(#ah)"/>
+<path d="M457,248 L457,740" class="ar" marker-end="url(#ah)"/>
+<path d="M457,740 L457,306" class="ar" marker-end="url(#ah)"/>
+<path d="M457,306 L457,316" class="ar" marker-end="url(#ah)"/>
+<path d="M457,379 L457,389" class="ar" marker-end="url(#ah)"/>
+<path d="M457,389 L457,136" class="ar" marker-end="url(#ah)"/>
+<path d="M557,104 C570,104 570,488 583,488" class="ar" marker-end="url(#ah)"/>
+<path d="M683,520 L683,530" class="ar" marker-end="url(#ah)"/>
+<path d="M683,593 L683,696" class="ar" marker-end="url(#ah)"/>
+<path d="M683,696 L683,136" class="ar" marker-end="url(#ah)"/>
+<path d="M683,136 L683,754" class="ar" marker-end="url(#ah)"/>
+<path d="M783,793 C796,793 796,525 809,525" class="ar" marker-end="url(#ah)"/>
+<path d="M909,549 L909,740" class="ar" marker-end="url(#ah)"/>
+<path d="M909,740 L909,342" class="ar" marker-end="url(#ah)"/>
+<path d="M1009,311 C1022,311 1022,525 1035,525" class="ar" marker-end="url(#ah)"/>
+<path d="M1135,501 L1135,136" class="ar" marker-end="url(#ah)"/>
+<path d="M1135,136 L1135,613" class="ar dashed" marker-end="url(#ah)"/>
+<path d="M1135,613 L1135,342" class="ar" marker-end="url(#ah)"/>
+<path d="M1235,311 C1248,311 1248,735 1261,735" class="ar" marker-end="url(#ah)"/>
+<path d="M1361,718 L1361,92" class="ar" marker-end="url(#ah)"/>
+<path d="M1361,92 L1361,280" class="ar" marker-end="url(#ah)"/>
+<path d="M1361,342 L1361,762" class="ar" marker-end="url(#ah)"/>
+<path d="M1361,762 L1361,165" class="ar" marker-end="url(#ah)"/>
+<path d="M1461,134 C1474,134 1474,311 1487,311" class="ar" marker-end="url(#ah)"/>
+<path d="M1587,342 L1587,740" class="ar" marker-end="url(#ah)"/>
+<path d="M1687,764 C1700,764 1700,104 1713,104" class="ar" marker-end="url(#ah)"/>
+<g class="n state"><rect x="131" y="80" width="200" height="48" rx="7"/>
+<text x="231" y="100" class="t0">/sigmund #42</text>
+<text x="231" y="116" class="t">plus any context you attach</text>
+</g>
+<g class="n sig"><rect x="357" y="185" width="200" height="63" rx="7"/>
+<text x="457" y="205" class="t0">Read dev profile</text>
+<text x="457" y="220" class="t">task folder + ledger.md</text>
+<text x="457" y="235" class="t">(ledger-template.md) · INDEX row</text>
+<circle cx="369" cy="197" r="9" class="num"/><text x="369" y="200" class="numt">2</text>
+</g>
+<g class="n skill"><rect x="357" y="740" width="200" height="48" rx="7"/>
+<text x="457" y="760" class="t0">gh issue view → issue.md</text>
+<text x="457" y="775" class="t">pulled once; the run reads this</text>
+<circle cx="369" cy="752" r="9" class="num"/><text x="369" y="756" class="numt">3</text>
+</g>
+<g class="n sig"><rect x="357" y="258" width="200" height="48" rx="7"/>
+<text x="457" y="278" class="t0">Readiness check</text>
+<text x="457" y="293" class="t">(readiness-check.md)</text>
+<circle cx="369" cy="270" r="9" class="num"/><text x="369" y="274" class="numt">4</text>
+</g>
+<g class="n auto"><rect x="357" y="316" width="200" height="63" rx="7"/>
+<text x="457" y="336" class="t0">G-READINESS</text>
+<text x="457" y="351" class="t">auto-pass: HIGH + corrective</text>
+<text x="457" y="366" class="t">LOW, NOT_A_BUG, or additive → stop</text>
+<circle cx="369" cy="328" r="9" class="num"/><text x="369" y="332" class="numt">5</text>
+</g>
+<g class="n sig"><rect x="357" y="389" width="200" height="48" rx="7"/>
+<text x="457" y="409" class="t0">DoD pinned · effort forecast</text>
+<text x="457" y="424" class="t">You-Are-Here block</text>
+<circle cx="369" cy="401" r="9" class="num"/><text x="369" y="404" class="numt">6</text>
+</g>
+<g class="n stop"><rect x="357" y="73" width="200" height="63" rx="7"/>
+<text x="457" y="93" class="t0">STOP · Intake</text>
+<text x="457" y="108" class="t">confirm understanding, DoD,</text>
+<text x="457" y="123" class="t">any extra gates you want</text>
+<circle cx="369" cy="85" r="9" class="num"/><text x="369" y="88" class="numt">7</text>
+</g>
+<g class="n hat"><rect x="583" y="457" width="200" height="63" rx="7"/>
+<text x="683" y="477" class="t0">Sev hat · Phase 1 context</text>
+<text x="683" y="492" class="t">learnings, CLAUDE.md, repo configs,</text>
+<text x="683" y="507" class="t">end-to-end code trace</text>
+<circle cx="595" cy="469" r="9" class="num"/><text x="595" y="472" class="numt">8</text>
+</g>
+<g class="n hat"><rect x="583" y="530" width="200" height="63" rx="7"/>
+<text x="683" y="550" class="t0">Phase 2 · brief.md</text>
+<text x="683" y="565" class="t">opens with Issue / Cause / Fix,</text>
+<text x="683" y="580" class="t">approach, risk, verification plan</text>
+<circle cx="595" cy="542" r="9" class="num"/><text x="595" y="546" class="numt">9</text>
+</g>
+<g class="n skill"><rect x="583" y="696" width="200" height="48" rx="7"/>
+<text x="683" y="716" class="t0">va-humanizer (dispatch)</text>
+<text x="683" y="731" class="t">the Issue / Cause / Fix block</text>
+<circle cx="595" cy="708" r="9" class="num"/><text x="595" y="712" class="numt">10</text>
+</g>
+<g class="n stop"><rect x="583" y="73" width="200" height="63" rx="7"/>
+<text x="683" y="93" class="t0">STOP · G-APPROACH</text>
+<text x="683" y="108" class="t">read the three beats, then the brief;</text>
+<text x="683" y="123" class="t">nothing is coded until you approve</text>
+<circle cx="595" cy="85" r="9" class="num"/><text x="595" y="88" class="numt">11</text>
+</g>
+<g class="n skill"><rect x="583" y="754" width="200" height="78" rx="7"/>
+<text x="683" y="774" class="t0">adversarial cases</text>
+<text x="683" y="789" class="t">(Sonnet dispatch, risk-gated)</text>
+<text x="683" y="804" class="t">from Issue/Cause/Fix + risk</text>
+<text x="683" y="819" class="t">surface; not Sev's plan; S / A</text>
+<circle cx="595" cy="766" r="9" class="num"/><text x="595" y="770" class="numt">12</text>
+</g>
+<g class="n hat"><rect x="809" y="501" width="200" height="48" rx="7"/>
+<text x="909" y="521" class="t0">Phase 3 · implement to convention</text>
+<text x="909" y="536" class="t">(conventions-checklist.md)</text>
+<circle cx="821" cy="513" r="9" class="num"/><text x="821" y="516" class="numt">13</text>
+</g>
+<g class="n skill"><rect x="809" y="740" width="200" height="48" rx="7"/>
+<text x="909" y="760" class="t0">the repo's own build,</text>
+<text x="909" y="775" class="t">test, and lint commands</text>
+<circle cx="821" cy="752" r="9" class="num"/><text x="821" y="756" class="numt">14</text>
+</g>
+<g class="n auto"><rect x="809" y="280" width="200" height="63" rx="7"/>
+<text x="909" y="300" class="t0">G-COMMIT / G-PUSH</text>
+<text x="909" y="314" class="t">auto under confidence-check.md,</text>
+<text x="909" y="330" class="t">otherwise ask per action</text>
+<circle cx="821" cy="292" r="9" class="num"/><text x="821" y="295" class="numt">15</text>
+</g>
+<g class="n hat"><rect x="1035" y="501" width="200" height="48" rx="7"/>
+<text x="1135" y="521" class="t0">Stage the walk sheet</text>
+<text x="1135" y="536" class="t">start the app, seed the data</text>
+<circle cx="1047" cy="513" r="9" class="num"/><text x="1047" y="516" class="numt">16</text>
+</g>
+<g class="n stop"><rect x="1035" y="73" width="200" height="63" rx="7"/>
+<text x="1135" y="93" class="t0">STOP · G-UI walk</text>
+<text x="1135" y="108" class="t">you drive the app against the sheet;</text>
+<text x="1135" y="123" class="t">results recorded in the ledger</text>
+<circle cx="1047" cy="85" r="9" class="num"/><text x="1047" y="88" class="numt">17</text>
+</g>
+<g class="n disp"><rect x="1035" y="613" width="200" height="63" rx="7"/>
+<text x="1135" y="633" class="t0">Ellie (dispatch, clean-room)</text>
+<text x="1135" y="648" class="t">diff + issue.md + brief.md,</text>
+<text x="1135" y="663" class="t">+ walk results → coverage</text>
+<circle cx="1047" cy="625" r="9" class="num"/><text x="1047" y="628" class="numt">18</text>
+</g>
+<g class="n sig"><rect x="1035" y="280" width="200" height="63" rx="7"/>
+<text x="1135" y="300" class="t0">Triage</text>
+<text x="1135" y="314" class="t">valid → Sev fixes → re-verify;</text>
+<text x="1135" y="330" class="t">Review outcomes row per round</text>
+<circle cx="1047" cy="292" r="9" class="num"/><text x="1047" y="295" class="numt">19</text>
+</g>
+<g class="n skill"><rect x="1261" y="718" width="200" height="33" rx="7"/>
+<text x="1361" y="738" class="t0">va-pr-draft → va-humanizer</text>
+<circle cx="1273" cy="730" r="9" class="num"/><text x="1273" y="734" class="numt">20</text>
+</g>
+<g class="n stop"><rect x="1261" y="44" width="200" height="48" rx="7"/>
+<text x="1361" y="64" class="t0">STOP · G-PR-OPEN</text>
+<text x="1361" y="79" class="t">the PR opens on your say-so</text>
+<circle cx="1273" cy="56" r="9" class="num"/><text x="1273" y="60" class="numt">21</text>
+</g>
+<g class="n sig"><rect x="1261" y="280" width="200" height="63" rx="7"/>
+<text x="1361" y="300" class="t0">Wake-ups</text>
+<text x="1361" y="314" class="t">CI + Copilot comments → Sev triage,</text>
+<text x="1361" y="330" class="t">until the PR is clean</text>
+<circle cx="1273" cy="292" r="9" class="num"/><text x="1273" y="295" class="numt">22</text>
+</g>
+<g class="n skill"><rect x="1261" y="762" width="200" height="48" rx="7"/>
+<text x="1361" y="782" class="t0">issue closing comment</text>
+<text x="1361" y="796" class="t">→ va-humanizer</text>
+<circle cx="1273" cy="774" r="9" class="num"/><text x="1273" y="777" class="numt">23</text>
+</g>
+<g class="n stop"><rect x="1261" y="102" width="200" height="63" rx="7"/>
+<text x="1361" y="122" class="t0">STOP · delivery package</text>
+<text x="1361" y="137" class="t">G-MERGE click · G-ISSUE ok;</text>
+<text x="1361" y="152" class="t">metrics written</text>
+<circle cx="1273" cy="114" r="9" class="num"/><text x="1273" y="118" class="numt">24</text>
+</g>
+<g class="n sig"><rect x="1487" y="280" width="200" height="63" rx="7"/>
+<text x="1587" y="300" class="t0">DoD check</text>
+<text x="1587" y="314" class="t">task_metrics.py --write · index</text>
+<text x="1587" y="330" class="t">INDEX regenerated → Done</text>
+<circle cx="1499" cy="292" r="9" class="num"/><text x="1499" y="295" class="numt">25</text>
+</g>
+<g class="n skill"><rect x="1487" y="740" width="200" height="48" rx="7"/>
+<text x="1587" y="760" class="t0">va-share-learning</text>
+<text x="1587" y="775" class="t">learnings captured</text>
+<circle cx="1499" cy="752" r="9" class="num"/><text x="1499" y="756" class="numt">26</text>
+</g>
+<g class="n state"><rect x="1713" y="80" width="200" height="48" rx="7"/>
+<text x="1813" y="100" class="t0">Done</text>
+<text x="1813" y="116" class="t">merged, closed, recorded</text>
+</g>
+</svg></div>
+<div class="note">The dashed return arrows are the two loops that run without you. Review findings turn into Sev fixes and a re-verify until Ellie has no notes left. CI results and Copilot comments get triaged at every wake-up until the PR is clean. The adversarial cases are written from the brief's risk surface <em>without</em> sight of Sev's verification plan. Sigmund merges the two into the walk sheet you drive, and Ellie then checks that the walk covered them.</div>
+
+<h2>The Dev Review track</h2>
+<p>When the hand-over is someone else's finished PR on one of your repos, the task enters at Verification and the shape changes. Fixes go back to the author rather than to Sev, and the gates are the review set: comments, merge, notify.</p>
+<div class="wrap"><svg width="2104" height="132" viewBox="0 0 2104 132" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dev Review track">
+<defs><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ahp"/></marker></defs>
+<text x="114" y="18" class="owner">Ready</text>
+<g class="n state"><rect x="8" y="50" width="212" height="48" rx="7"/>
+<text x="114" y="70" class="t0">someone else's PR exists</text>
+<text x="114" y="85" class="t">on one of your repos</text>
+</g>
+<path d="M220,74 L240,74" class="ar " marker-end="url(#ah2)"/>
+<text x="346" y="18" class="owner">Sigmund</text>
+<g class="n sig"><rect x="240" y="35" width="212" height="78" rx="7"/>
+<text x="346" y="55" class="t0">Review intake</text>
+<text x="346" y="70" class="t">Issue / Cause / Fix from</text>
+<text x="346" y="85" class="t">the diff and the issue;</text>
+<text x="346" y="100" class="t">beat 3: is the author's fix right?</text>
+<circle cx="252" cy="47" r="9" class="num"/><text x="252" y="50" class="numt">1</text>
+</g>
+<path d="M452,74 L472,74" class="ar " marker-end="url(#ah2)"/>
+<text x="578" y="18" class="owner">Skills</text>
+<g class="n skill"><rect x="472" y="42" width="212" height="63" rx="7"/>
+<text x="578" y="62" class="t0">Sonnet gatherer (optional)</text>
+<text x="578" y="78" class="t">diff walk summary;</text>
+<text x="578" y="92" class="t">judgment stays Sigmund's</text>
+<circle cx="484" cy="54" r="9" class="num"/><text x="484" y="58" class="numt">2</text>
+</g>
+<path d="M684,74 L704,74" class="ar dashed" marker-end="url(#ah2)"/>
+<text x="810" y="18" class="owner">Ellie</text>
+<g class="n disp"><rect x="704" y="42" width="212" height="63" rx="7"/>
+<text x="810" y="62" class="t0">Ellie (dispatch, clean-room)</text>
+<text x="810" y="78" class="t">+ coverage: do the author's</text>
+<text x="810" y="92" class="t">claimed cases cover the surface?</text>
+<circle cx="716" cy="54" r="9" class="num"/><text x="716" y="58" class="numt">3</text>
+</g>
+<path d="M916,74 L936,74" class="ar " marker-end="url(#ah2)"/>
+<text x="1042" y="18" class="owner">Developer</text>
+<g class="n stop"><rect x="936" y="42" width="212" height="63" rx="7"/>
+<text x="1042" y="62" class="t0">STOP · G-COMMENTS</text>
+<text x="1042" y="78" class="t">findings go to the author as PR</text>
+<text x="1042" y="92" class="t">review comments you approve</text>
+<circle cx="948" cy="54" r="9" class="num"/><text x="948" y="58" class="numt">4</text>
+</g>
+<path d="M1148,74 L1168,74" class="ar " marker-end="url(#ah2)"/>
+<text x="1274" y="18" class="owner">Skills</text>
+<g class="n skill"><rect x="1168" y="50" width="212" height="48" rx="7"/>
+<text x="1274" y="70" class="t0">build + test locally</text>
+<text x="1274" y="85" class="t">(gh pr checkout)</text>
+<circle cx="1180" cy="62" r="9" class="num"/><text x="1180" y="66" class="numt">5</text>
+</g>
+<path d="M1380,74 L1400,74" class="ar " marker-end="url(#ah2)"/>
+<text x="1506" y="18" class="owner">Developer</text>
+<g class="n stop"><rect x="1400" y="58" width="212" height="33" rx="7"/>
+<text x="1506" y="78" class="t0">STOP · G-MERGE</text>
+<circle cx="1412" cy="70" r="9" class="num"/><text x="1412" y="73" class="numt">6</text>
+</g>
+<path d="M1612,74 L1632,74" class="ar " marker-end="url(#ah2)"/>
+<text x="1738" y="18" class="owner">Skills</text>
+<g class="n skill"><rect x="1632" y="42" width="212" height="63" rx="7"/>
+<text x="1738" y="62" class="t0">G-NOTIFY · va-humanizer</text>
+<text x="1738" y="78" class="t">thank the author;</text>
+<text x="1738" y="92" class="t">close out the PR / issue</text>
+<circle cx="1644" cy="54" r="9" class="num"/><text x="1644" y="58" class="numt">7</text>
+</g>
+<path d="M1844,74 L1864,74" class="ar " marker-end="url(#ah2)"/>
+<text x="1970" y="18" class="owner">Sigmund</text>
+<g class="n sig"><rect x="1864" y="50" width="212" height="48" rx="7"/>
+<text x="1970" y="70" class="t0">Closeout</text>
+<text x="1970" y="85" class="t">review DoD · metrics · INDEX Done</text>
+<circle cx="1876" cy="62" r="9" class="num"/><text x="1876" y="66" class="numt">8</text>
+</g>
+</svg></div>
+
+<h2>Who calls what</h2>
+<table>
+<tr><th>Called</th><th>By</th><th>When</th></tr>
+<tr><td><code>ledger-template.md</code>, <code>issue.md</code> (<code>gh issue view</code>)</td><td>Sigmund</td><td>Intake, once per task</td></tr>
+<tr><td><code>readiness-check.md</code></td><td>Sigmund (Sev standalone)</td><td>Intake, before any scoping</td></tr>
+<tr><td><code>issue-cause-fix.md</code></td><td>Sev (brief); Sigmund (Dev Review)</td><td>After exploration, before the approach gate</td></tr>
+<tr><td><code>va-humanizer</code></td><td>Every drafting skill, via dispatch</td><td>Before any outward-facing text reaches you (<code>humanize-gate.md</code>)</td></tr>
+<tr><td><code>adversarial-cases.md</code> (Sonnet dispatch)</td><td>Sigmund, via dispatch</td><td>After the approach gate, on tasks with a regression surface. The cases join the walk sheet with their provenance marked.</td></tr>
+<tr><td><code>conventions-checklist.md</code></td><td>Sev writes to it; Ellie reviews against it</td><td>Execution; review</td></tr>
+<tr><td><code>confidence-check.md</code></td><td>Sigmund and Sev</td><td>Every commit and push</td></tr>
+<tr><td><code>ellie</code> (<code>review-dispatch.md</code>)</td><td>Sigmund, via dispatch</td><td>When implementation completes; again after fixes. With the walk results, for the coverage check</td></tr>
+<tr><td><code>va-pr-draft</code></td><td>Sigmund</td><td>Delivery, before the PR-open stop</td></tr>
+<tr><td><code>task_metrics.py</code>, <code>va-share-learning</code></td><td>Sigmund</td><td>Closeout</td></tr>
+</table>
+
+<footer class="doc">dev-loop · docs/task-flow.html · generated from the pipeline spec; MANUAL.md remains the canonical prose.</footer>
+</main>
+</body>
+</html>

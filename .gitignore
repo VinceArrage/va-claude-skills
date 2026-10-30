@@ -1,0 +1,4 @@
+*.local.md
+scratch/
+.superpowers/
+__pycache__/

@@ -1,0 +1,8 @@
+{
+  "name": "dev-loop",
+  "description": "GitHub issue -> Sev -> Ellie -> PR -> closeout workflow for personal projects, stack-agnostic with Python, TypeScript/JS, and .NET checklists",
+  "version": "0.8.0",
+  "author": {
+    "name": "Vincent Arrage"
+  }
+}

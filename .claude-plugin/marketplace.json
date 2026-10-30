@@ -1,0 +1,11 @@
+{
+  "name": "va-claude-skills",
+  "owner": { "name": "Vincent Arrage" },
+  "plugins": [
+    {
+      "name": "dev-loop",
+      "source": "./plugins/dev-loop",
+      "description": "A GitHub issue to merged-PR dev loop: Sev (implementation), Ellie (review), Sigmund (orchestration and Dev Review, experimental), PR drafting, a humanize pass, and a shared base of gotchas. Stack-agnostic, with Python, TypeScript/JS, and .NET checklists."
+    }
+  ]
+}
